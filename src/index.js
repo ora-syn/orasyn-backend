@@ -1,4 +1,7 @@
-console.log("🚨🚨🚨 ORASYN STARTET AUS DATEI:", __filename);
+import dotenv from "dotenv";
+dotenv.config();
+
+console.log("🔥 CALLBACK URL BEIM START:", process.env.GOOGLE_CALLBACK_URL);
 const express = require("express");
 const session = require("express-session");
 const passport = require("passport");
