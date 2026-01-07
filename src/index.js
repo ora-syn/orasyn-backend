@@ -1,15 +1,27 @@
+// =======================
+// ORASYN Backend – ES Modules
+// =======================
+
 import dotenv from "dotenv";
 dotenv.config();
 
+import express from "express";
+import session from "express-session";
+import passport from "passport";
+import { Strategy as GoogleStrategy } from "passport-google-oauth20";
+import cors from "cors";
+import { google } from "googleapis";
+
+// =======================
+// Basic Logs (Debug)
+// =======================
+
 console.log("🔥 CALLBACK URL BEIM START:", process.env.GOOGLE_CALLBACK_URL);
-const express = require("express");
-const session = require("express-session");
-const passport = require("passport");
-const GoogleStrategy = require("passport-google-oauth20").Strategy;
-const cors = require("cors");
-require("dotenv").config();
-console.log("CLIENT ID:", process.env.GOOGLE_CLIENT_ID);
-const { google } = require("googleapis");
+console.log("CLIENT ID:", process.env.GOOGLE_CLIENT_ID ? "✅ vorhanden" : "❌ fehlt");
+
+// =======================
+// App Setup
+// =======================
 
 const app = express();
 
@@ -23,7 +35,7 @@ app.use(
     saveUninitialized: false,
     cookie: {
       sameSite: "lax",
-      secure: false, // localhost
+      secure: false, // Railway handled TLS
     },
   })
 );
@@ -31,8 +43,16 @@ app.use(
 app.use(passport.initialize());
 app.use(passport.session());
 
+// =======================
+// Passport Session Handling
+// =======================
+
 passport.serializeUser((user, done) => done(null, user));
 passport.deserializeUser((obj, done) => done(null, obj));
+
+// =======================
+// Google OAuth Strategy
+// =======================
 
 passport.use(
   new GoogleStrategy(
@@ -42,67 +62,68 @@ passport.use(
       callbackURL: process.env.GOOGLE_CALLBACK_URL,
     },
     async (accessToken, refreshToken, profile, done) => {
-console.log("🚨🚨🚨 ORASYN CALLBACK WIRD AUSGEFÜHRT 🚨🚨🚨");
-console.log("✅ GOOGLE LOGIN ERFOLGREICH");
+      console.log("🚨🚨🚨 ORASYN CALLBACK WIRD AUSGEFÜHRT 🚨🚨🚨");
+      console.log("✅ GOOGLE LOGIN ERFOLGREICH");
 
-  const auth = new google.auth.OAuth2();
-  auth.setCredentials({ access_token: accessToken });
+      try {
+        // Google Auth Client
+        const auth = new google.auth.OAuth2();
+        auth.setCredentials({ access_token: accessToken });
 
-  const calendar = google.calendar({ version: "v3", auth });
+        const calendar = google.calendar({ version: "v3", auth });
 
-  // Fokuszeit (fest fürs MVP)
-  const focusStart = new Date();
-  focusStart.setHours(9, 0, 0, 0);
+        // =======================
+        // MVP Fokuszeit (fest)
+        // =======================
 
-  const focusEnd = new Date();
-  focusEnd.setHours(11, 0, 0, 0);
+        const focusStart = new Date();
+        focusStart.setHours(9, 0, 0, 0);
 
-  try {
-    const res = await calendar.events.list({
-      calendarId: "primary",
-      timeMin: new Date().toISOString(),
-      timeMax: new Date(new Date().setHours(23, 59, 59, 999)).toISOString(),
-      singleEvents: true,
-      orderBy: "startTime",
-    });
-console.log("🧪 Calendar API raw response:", JSON.stringify(res.data, null, 2));
+        const focusEnd = new Date();
+        focusEnd.setHours(11, 0, 0, 0);
 
+        // =======================
+        // Kalender lesen
+        // =======================
 
-    const events = res.data.items || [];
-console.log("🧠 Rohdaten Events:", events);
+        const res = await calendar.events.list({
+          calendarId: "primary",
+          timeMin: new Date().toISOString(),
+          timeMax: new Date(new Date().setHours(23, 59, 59, 999)).toISOString(),
+          singleEvents: true,
+          orderBy: "startTime",
+        });
 
+        const events = res.data.items || [];
+        console.log(`📅 Termine heute: ${events.length}`);
 
-    console.log(`📅 Termine heute: ${events.length}`);
+        events.forEach((event) => {
+          if (!event.start?.dateTime || !event.end?.dateTime) return;
 
-    events.forEach((event) => {
-      if (!event.start?.dateTime || !event.end?.dateTime) return;
+          const eventStart = new Date(event.start.dateTime);
+          const eventEnd = new Date(event.end.dateTime);
 
-      const startTime = event.start.dateTime || event.start.date;
-const endTime = event.end.dateTime || event.end.date;
+          const overlap = eventStart < focusEnd && eventEnd > focusStart;
 
-if (!startTime || !endTime) return;
+          if (overlap) {
+            console.log(
+              `⚠️ KONFLIKT: "${event.summary}" (${eventStart.toLocaleTimeString()}–${eventEnd.toLocaleTimeString()})`
+            );
+          }
+        });
 
-const eventStart = new Date(startTime);
-const eventEnd = new Date(endTime);
-
-      const overlap =
-        eventStart < focusEnd && eventEnd > focusStart;
-
-      if (overlap) {
-        console.log(
-          `⚠️ KONFLIKT: "${event.summary}" (${eventStart.toLocaleTimeString()}–${eventEnd.toLocaleTimeString()}) kollidiert mit Fokuszeit`
-        );
+        done(null, profile);
+      } catch (err) {
+        console.error("❌ Fehler beim Lesen des Kalenders:", err);
+        done(err, null);
       }
-    });
-  } catch (err) {
-    console.error("❌ Fehler beim Lesen des Kalenders:", err);
-  }
-
-  done(null, profile);
-}
-
+    }
   )
 );
+
+// =======================
+// Routes
+// =======================
 
 app.get(
   "/auth/google",
@@ -127,7 +148,12 @@ app.get("/", (req, res) => {
   res.send("ORASYN backend running 🚀");
 });
 
-const PORT = 3000;
+// =======================
+// Server Start
+// =======================
+
+const PORT = process.env.PORT || 3000;
+
 app.listen(PORT, () => {
-  console.log(`ORASYN listening on http://localhost:${PORT}`);
+  console.log(`🚀 ORASYN listening on port ${PORT}`);
 });
