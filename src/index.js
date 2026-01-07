@@ -2,15 +2,6 @@
 // ORASYN Backend – ES Modules
 // =======================
 
-import express from "express";
-
-const app = express();
-
-// 🔴 RAILWAY HEALTHCHECK – MUSS ALS ERSTES KOMMEN
-app.get("/_health", (req, res) => {
-  res.status(200).send("OK");
-});
-
 import dotenv from "dotenv";
 dotenv.config();
 
