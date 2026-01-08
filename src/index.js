@@ -1,23 +1,11 @@
 // =======================
-// ORASYN Backend – ES Modules
-// =======================
-
-import express from "express";
-
-const app = express();
-
-// 🚨 RAILWAY HEALTH / ROOT – MUSS SOFORT EXISTIEREN
-app.get("/", (req, res) => {
-  res.status(200).send("ORASYN backend running 🚀");
-});
-
-// =======================
-// ENV & weitere Imports
+// ORASYN Backend – ES Modules (STABLE)
 // =======================
 
 import dotenv from "dotenv";
 dotenv.config();
 
+import express from "express";
 import session from "express-session";
 import passport from "passport";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
@@ -35,7 +23,7 @@ console.log(
 );
 
 // =======================
-// App Setup
+// App Setup (NUR EINMAL)
 // =======================
 
 const app = express();
@@ -45,12 +33,12 @@ app.use(express.json());
 
 app.use(
   session({
-    secret: process.env.SESSION_SECRET,
+    secret: process.env.SESSION_SECRET || "orasyn_dev_secret",
     resave: false,
     saveUninitialized: false,
     cookie: {
       sameSite: "lax",
-      secure: false, // Railway handled TLS
+      secure: false,
     },
   })
 );
@@ -59,7 +47,7 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 // =======================
-// Passport Session Handling
+// Passport Session
 // =======================
 
 passport.serializeUser((user, done) => done(null, user));
@@ -77,29 +65,20 @@ passport.use(
       callbackURL: process.env.GOOGLE_CALLBACK_URL,
     },
     async (accessToken, refreshToken, profile, done) => {
-      console.log("🚨🚨🚨 ORASYN CALLBACK WIRD AUSGEFÜHRT 🚨🚨🚨");
       console.log("✅ GOOGLE LOGIN ERFOLGREICH");
 
       try {
-        // Google Auth Client
         const auth = new google.auth.OAuth2();
         auth.setCredentials({ access_token: accessToken });
 
         const calendar = google.calendar({ version: "v3", auth });
 
-        // =======================
-        // MVP Fokuszeit (fest)
-        // =======================
-
+        // MVP Fokuszeit
         const focusStart = new Date();
         focusStart.setHours(9, 0, 0, 0);
 
         const focusEnd = new Date();
         focusEnd.setHours(11, 0, 0, 0);
-
-        // =======================
-        // Kalender lesen
-        // =======================
 
         const res = await calendar.events.list({
           calendarId: "primary",
@@ -129,7 +108,7 @@ passport.use(
 
         done(null, profile);
       } catch (err) {
-        console.error("❌ Fehler beim Lesen des Kalenders:", err);
+        console.error("❌ Kalender-Fehler:", err);
         done(err, null);
       }
     }
