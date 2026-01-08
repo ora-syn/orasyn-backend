@@ -2,10 +2,22 @@
 // ORASYN Backend – ES Modules
 // =======================
 
+import express from "express";
+
+const app = express();
+
+// 🚨 RAILWAY HEALTH / ROOT – MUSS SOFORT EXISTIEREN
+app.get("/", (req, res) => {
+  res.status(200).send("ORASYN backend running 🚀");
+});
+
+// =======================
+// ENV & weitere Imports
+// =======================
+
 import dotenv from "dotenv";
 dotenv.config();
 
-import express from "express";
 import session from "express-session";
 import passport from "passport";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
@@ -13,11 +25,14 @@ import cors from "cors";
 import { google } from "googleapis";
 
 // =======================
-// Basic Logs (Debug)
+// Debug Logs
 // =======================
 
 console.log("🔥 CALLBACK URL BEIM START:", process.env.GOOGLE_CALLBACK_URL);
-console.log("CLIENT ID:", process.env.GOOGLE_CLIENT_ID ? "✅ vorhanden" : "❌ fehlt");
+console.log(
+  "CLIENT ID:",
+  process.env.GOOGLE_CLIENT_ID ? "✅ vorhanden" : "❌ fehlt"
+);
 
 // =======================
 // App Setup
